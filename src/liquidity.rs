@@ -25,8 +25,9 @@ use lightning_liquidity::lsps1::msgs::{ChannelInfo, LSPS1Options, OrderId, Order
 use lightning_liquidity::lsps2::client::LSPS2ClientConfig as LdkLSPS2ClientConfig;
 use lightning_liquidity::lsps2::event::LSPS2ClientEvent;
 use lightning_liquidity::lsps2::msgs::OpeningFeeParams;
+use lightning_liquidity::lsps2::service::LSPS2ServiceConfig;
 use lightning_liquidity::lsps2::utils::compute_opening_fee;
-use lightning_liquidity::LiquidityClientConfig;
+use lightning_liquidity::{LiquidityClientConfig, LiquidityServiceConfig};
 
 use bitcoin::hashes::{sha256, Hash};
 use bitcoin::secp256k1::{PublicKey, Secp256k1};
@@ -75,12 +76,19 @@ pub(crate) struct LSPS2ClientConfig {
 	pub token: Option<String>,
 }
 
+struct LSPS2Service {
+	token: Option<String>,
+	service_config: LSPS2ServiceConfig,
+	advertise_service: bool,
+}
+
 pub(crate) struct LiquiditySourceBuilder<L: Deref>
 where
 	L::Target: LdkLogger,
 {
 	lsps1_client: Option<LSPS1Client>,
 	lsps2_client: Option<LSPS2Client>,
+	lsps2_service: Option<LSPS2Service>,
 	channel_manager: Arc<ChannelManager>,
 	keys_manager: Arc<KeysManager>,
 	chain_source: Arc<ChainSource>,
@@ -98,9 +106,11 @@ where
 	) -> Self {
 		let lsps1_client = None;
 		let lsps2_client = None;
+		let lsps2_service = None;
 		Self {
 			lsps1_client,
 			lsps2_client,
+			lsps2_service,
 			channel_manager,
 			keys_manager,
 			chain_source,
@@ -146,7 +156,21 @@ where
 		self
 	}
 
+	pub(crate) fn lsps2_service(
+		&mut self, promise_secret: [u8; 32], token: Option<String>, advertise_service: bool,
+	) -> &mut Self {
+		let service_config = LSPS2ServiceConfig { promise_secret };
+		self.lsps2_service = Some(LSPS2Service { token, service_config, advertise_service });
+		self
+	}
+
 	pub(crate) fn build(self) -> LiquiditySource<L> {
+		let liquidity_service_config = self.lsps2_service.as_ref().map(|s| {
+			let lsps2_service_config = Some(s.service_config.clone());
+			let advertise_service = s.advertise_service;
+			LiquidityServiceConfig { lsps2_service_config, advertise_service }
+		});
+
 		let lsps1_client_config = self.lsps1_client.as_ref().map(|s| s.ldk_client_config.clone());
 		let lsps2_client_config = self.lsps2_client.as_ref().map(|s| s.ldk_client_config.clone());
 		let liquidity_client_config =
@@ -157,13 +181,14 @@ where
 			Arc::clone(&self.channel_manager),
 			Some(Arc::clone(&self.chain_source)),
 			None,
-			None,
+			liquidity_service_config,
 			liquidity_client_config,
 		));
 
 		LiquiditySource {
 			lsps1_client: self.lsps1_client,
 			lsps2_client: self.lsps2_client,
+			lsps2_service: self.lsps2_service,
 			channel_manager: self.channel_manager,
 			keys_manager: self.keys_manager,
 			liquidity_manager,
@@ -179,6 +204,7 @@ where
 {
 	lsps1_client: Option<LSPS1Client>,
 	lsps2_client: Option<LSPS2Client>,
+	lsps2_service: Option<LSPS2Service>,
 	channel_manager: Arc<ChannelManager>,
 	keys_manager: Arc<KeysManager>,
 	liquidity_manager: Arc<LiquidityManager>,
