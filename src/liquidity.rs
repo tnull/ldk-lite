@@ -13,10 +13,10 @@ use lightning::ln::channelmanager::MIN_FINAL_CLTV_EXPIRY_DELTA;
 use lightning::ln::msgs::SocketAddress;
 use lightning::routing::router::{RouteHint, RouteHintHop};
 use lightning_invoice::{Bolt11Invoice, Bolt11InvoiceDescription, InvoiceBuilder, RoutingFees};
-use lightning_liquidity::events::Event;
-use lightning_liquidity::lsps0::ser::RequestId;
+use lightning_liquidity::events::LiquidityEvent;
+use lightning_liquidity::lsps0::ser::LSPSRequestId;
 use lightning_liquidity::lsps2::event::LSPS2ClientEvent;
-use lightning_liquidity::lsps2::msgs::OpeningFeeParams;
+use lightning_liquidity::lsps2::msgs::LSPS2OpeningFeeParams;
 use lightning_liquidity::lsps2::utils::compute_opening_fee;
 
 use bitcoin::hashes::{sha256, Hash};
@@ -35,8 +35,8 @@ struct LSPS2Service {
 	address: SocketAddress,
 	node_id: PublicKey,
 	token: Option<String>,
-	pending_fee_requests: Mutex<HashMap<RequestId, oneshot::Sender<LSPS2FeeResponse>>>,
-	pending_buy_requests: Mutex<HashMap<RequestId, oneshot::Sender<LSPS2BuyResponse>>>,
+	pending_fee_requests: Mutex<HashMap<LSPSRequestId, oneshot::Sender<LSPS2FeeResponse>>>,
+	pending_buy_requests: Mutex<HashMap<LSPSRequestId, oneshot::Sender<LSPS2BuyResponse>>>,
 }
 
 pub(crate) struct LiquiditySource<L: Deref>
@@ -87,7 +87,7 @@ where
 
 	pub(crate) async fn handle_next_event(&self) {
 		match self.liquidity_manager.next_event_async().await {
-			Event::LSPS2Client(LSPS2ClientEvent::OpeningParametersReady {
+			LiquidityEvent::LSPS2Client(LSPS2ClientEvent::OpeningParametersReady {
 				request_id,
 				counterparty_node_id,
 				opening_fee_params_menu,
@@ -137,7 +137,7 @@ where
 					);
 				}
 			},
-			Event::LSPS2Client(LSPS2ClientEvent::InvoiceParametersReady {
+			LiquidityEvent::LSPS2Client(LSPS2ClientEvent::InvoiceParametersReady {
 				request_id,
 				counterparty_node_id,
 				intercept_scid,
@@ -330,7 +330,7 @@ where
 	}
 
 	async fn lsps2_send_buy_request(
-		&self, amount_msat: Option<u64>, opening_fee_params: OpeningFeeParams,
+		&self, amount_msat: Option<u64>, opening_fee_params: LSPS2OpeningFeeParams,
 	) -> Result<LSPS2BuyResponse, Error> {
 		let lsps2_service = self.lsps2_service.as_ref().ok_or(Error::LiquiditySourceUnavailable)?;
 
@@ -430,7 +430,7 @@ where
 
 #[derive(Debug, Clone)]
 pub(crate) struct LSPS2FeeResponse {
-	opening_fee_params_menu: Vec<OpeningFeeParams>,
+	opening_fee_params_menu: Vec<LSPS2OpeningFeeParams>,
 }
 
 #[derive(Debug, Clone)]
