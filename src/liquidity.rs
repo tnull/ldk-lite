@@ -77,9 +77,45 @@ pub(crate) struct LSPS2ClientConfig {
 }
 
 struct LSPS2Service {
-	token: Option<String>,
+	service_config: LSPS2ServiceConfig,
 	ldk_service_config: LdkLSPS2ServiceConfig,
-	advertise_service: bool,
+}
+
+/// Represents the configuration of the LSPS2 service.
+///
+/// See [bLIP-52 / LSPS2] for more information.
+///
+/// [bLIP-52 / LSPS2]: https://github.com/lightning/blips/blob/master/blip-0052.md
+#[derive(Debug, Clone)]
+pub struct LSPS2ServiceConfig {
+	/// A token we may require to be sent by the clients.
+	///
+	/// If set, only requests matching this token will be accepted.
+	pub require_token: Option<String>,
+	/// Indicates whether the LSPS service will be announced via the gossip network.
+	pub advertise_service: bool,
+	/// The fee we withhold for the channel open from the initial payment.
+	///
+	/// This fee is proportional to the client-requested amount, in parts-per-million.
+	pub channel_opening_fee_ppm: u32,
+	/// The proportional overprovisioning for the channel.
+	///
+	/// This determines, in parts-per-million of the client-requested amount, how much value we'll
+	/// provision on top of the client-requested payment amount.
+	///
+	/// For example, setting this to `100_000` will result in a channel being opened that is 10%
+	/// larger than the client-requested payment amount.
+	pub channel_over_provisioning_ppm: u32,
+	/// The minimum fee required for opening a channel.
+	pub min_channel_opening_fee_msat: u64,
+	/// The minimum number of blocks after confirmation we promise to keep the channel open.
+	pub min_channel_lifetime: u32,
+	/// The maximum number of blocks that the client is allowed to set its `to_self_delay` parameter.
+	pub max_client_to_self_delay: u32,
+	/// The minimum payment size that we will accept when opening a channel.
+	pub min_payment_size_msat: u64,
+	/// The maximum payment size that we will accept when opening a channel.
+	pub max_payment_size_msat: u64,
 }
 
 pub(crate) struct LiquiditySourceBuilder<L: Deref>
@@ -157,17 +193,17 @@ where
 	}
 
 	pub(crate) fn lsps2_service(
-		&mut self, promise_secret: [u8; 32], token: Option<String>, advertise_service: bool,
+		&mut self, promise_secret: [u8; 32], service_config: LSPS2ServiceConfig,
 	) -> &mut Self {
 		let ldk_service_config = LdkLSPS2ServiceConfig { promise_secret };
-		self.lsps2_service = Some(LSPS2Service { token, ldk_service_config, advertise_service });
+		self.lsps2_service = Some(LSPS2Service { service_config, ldk_service_config });
 		self
 	}
 
 	pub(crate) fn build(self) -> LiquiditySource<L> {
 		let liquidity_service_config = self.lsps2_service.as_ref().map(|s| {
 			let lsps2_service_config = Some(s.ldk_service_config.clone());
-			let advertise_service = s.advertise_service;
+			let advertise_service = s.service_config.advertise_service;
 			LiquidityServiceConfig { lsps2_service_config, advertise_service }
 		});
 

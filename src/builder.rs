@@ -18,7 +18,9 @@ use crate::gossip::GossipSource;
 use crate::io::sqlite_store::SqliteStore;
 use crate::io::utils::{read_node_metrics, write_node_metrics};
 use crate::io::vss_store::VssStore;
-use crate::liquidity::{LSPS1ClientConfig, LSPS2ClientConfig, LiquiditySourceBuilder};
+use crate::liquidity::{
+	LSPS1ClientConfig, LSPS2ClientConfig, LSPS2ServiceConfig, LiquiditySourceBuilder,
+};
 use crate::logger::{log_error, log_info, LdkLogger, LogLevel, LogWriter, Logger};
 use crate::message_handler::NodeCustomMessageHandler;
 use crate::payment::store::PaymentStore;
@@ -106,12 +108,6 @@ struct LiquiditySourceConfig {
 	lsps2_client: Option<LSPS2ClientConfig>,
 	// Act as an LSPS2 service.
 	lsps2_service: Option<LSPS2ServiceConfig>,
-}
-
-#[derive(Debug, Clone)]
-struct LSPS2ServiceConfig {
-	token: Option<String>,
-	advertise_service: bool,
 }
 
 #[derive(Clone)]
@@ -352,20 +348,15 @@ impl NodeBuilder {
 	/// Configures the [`Node`] instance to provide an [LSPS2] service, issuing just-in-time
 	/// channels to clients.
 	///
-	/// If a `token` is provided, only requests matching this token will be accepted.
-	///
-	/// If `advertise_service` is set, the LSPS service will be announced via the gossip network.
-	///
 	/// **Caution**: LSP service support is in **alpha** and is considered an experimental feature.
 	///
 	/// [LSPS2]: https://github.com/BitcoinAndLightningLayerSpecs/lsp/blob/main/LSPS2/README.md
 	pub fn set_liquidity_provider_lsps2(
-		&mut self, token: Option<String>, advertise_service: bool,
+		&mut self, service_config: LSPS2ServiceConfig,
 	) -> &mut Self {
 		let liquidity_source_config =
 			self.liquidity_source_config.get_or_insert(LiquiditySourceConfig::default());
-		let lsps2_service_config = LSPS2ServiceConfig { token, advertise_service };
-		liquidity_source_config.lsps2_service = Some(lsps2_service_config);
+		liquidity_source_config.lsps2_service = Some(service_config);
 		self
 	}
 
@@ -724,15 +715,11 @@ impl ArcedNodeBuilder {
 	/// Configures the [`Node`] instance to provide an [LSPS2] service, issuing just-in-time
 	/// channels to clients.
 	///
-	/// If a `token` is provided, only requests matching this token will be accepted.
-	///
-	/// If `advertise_service` is set, the LSPS service will be announced via the gossip network.
-	///
 	/// **Caution**: LSP service support is in **alpha** and is considered an experimental feature.
 	///
 	/// [LSPS2]: https://github.com/BitcoinAndLightningLayerSpecs/lsp/blob/main/LSPS2/README.md
-	pub fn set_liquidity_provider_lsps2(&self, token: Option<String>, advertise_service: bool) {
-		self.inner.write().unwrap().set_liquidity_provider_lsps2(token, advertise_service);
+	pub fn set_liquidity_provider_lsps2(&self, service_config: LSPS2ServiceConfig) {
+		self.inner.write().unwrap().set_liquidity_provider_lsps2(service_config);
 	}
 
 	/// Sets the used storage directory path.
@@ -1246,11 +1233,7 @@ fn build_with_store_internal(
 				lsps_xpriv.private_key.secret_bytes()
 			};
 			lsc.lsps2_service.as_ref().map(|config| {
-				liquidity_source_builder.lsps2_service(
-					promise_secret,
-					config.token.clone(),
-					config.advertise_service,
-				)
+				liquidity_source_builder.lsps2_service(promise_secret, config.clone())
 			});
 
 			let liquidity_source = Arc::new(liquidity_source_builder.build());
