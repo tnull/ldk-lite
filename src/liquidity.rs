@@ -25,7 +25,7 @@ use lightning_liquidity::lsps1::msgs::{ChannelInfo, LSPS1Options, OrderId, Order
 use lightning_liquidity::lsps2::client::LSPS2ClientConfig as LdkLSPS2ClientConfig;
 use lightning_liquidity::lsps2::event::LSPS2ClientEvent;
 use lightning_liquidity::lsps2::msgs::OpeningFeeParams;
-use lightning_liquidity::lsps2::service::LSPS2ServiceConfig;
+use lightning_liquidity::lsps2::service::LSPS2ServiceConfig as LdkLSPS2ServiceConfig;
 use lightning_liquidity::lsps2::utils::compute_opening_fee;
 use lightning_liquidity::{LiquidityClientConfig, LiquidityServiceConfig};
 
@@ -78,7 +78,7 @@ pub(crate) struct LSPS2ClientConfig {
 
 struct LSPS2Service {
 	token: Option<String>,
-	service_config: LSPS2ServiceConfig,
+	ldk_service_config: LdkLSPS2ServiceConfig,
 	advertise_service: bool,
 }
 
@@ -159,14 +159,14 @@ where
 	pub(crate) fn lsps2_service(
 		&mut self, promise_secret: [u8; 32], token: Option<String>, advertise_service: bool,
 	) -> &mut Self {
-		let service_config = LSPS2ServiceConfig { promise_secret };
-		self.lsps2_service = Some(LSPS2Service { token, service_config, advertise_service });
+		let ldk_service_config = LdkLSPS2ServiceConfig { promise_secret };
+		self.lsps2_service = Some(LSPS2Service { token, ldk_service_config, advertise_service });
 		self
 	}
 
 	pub(crate) fn build(self) -> LiquiditySource<L> {
 		let liquidity_service_config = self.lsps2_service.as_ref().map(|s| {
-			let lsps2_service_config = Some(s.service_config.clone());
+			let lsps2_service_config = Some(s.ldk_service_config.clone());
 			let advertise_service = s.advertise_service;
 			LiquidityServiceConfig { lsps2_service_config, advertise_service }
 		});
