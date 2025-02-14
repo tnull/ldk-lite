@@ -960,7 +960,11 @@ where
 				channel_id,
 				counterparty_node_id,
 			) {
-				log_error!(self.logger, "Errored processing ChannelReady event: {:?}", e);
+				log_error!(
+					self.logger,
+					"LSPS2 service failed to handle ChannelReady event: {:?}",
+					e
+				);
 			}
 		}
 	}
@@ -976,7 +980,11 @@ where
 				expected_outbound_amount_msat,
 				payment_hash,
 			) {
-				log_error!(self.logger, "Failed to handle HTLCIntercepted event: {:?}", e);
+				log_error!(
+					self.logger,
+					"LSPS2 service failed to handle HTLCIntercepted event: {:?}",
+					e
+				);
 			}
 		}
 	}
@@ -984,7 +992,11 @@ where
 	pub(crate) fn handle_htlc_handling_failed(&self, failed_next_destination: HTLCDestination) {
 		if let Some(lsps2_service_handler) = self.liquidity_manager.lsps2_service_handler() {
 			if let Err(e) = lsps2_service_handler.htlc_handling_failed(failed_next_destination) {
-				log_error!(self.logger, "Errored processing HTLCHandlingFailed event: {:?}", e);
+				log_error!(
+					self.logger,
+					"LSPS2 service failed to handle HTLCHandlingFailed event: {:?}",
+					e
+				);
 			}
 		}
 	}
@@ -993,7 +1005,11 @@ where
 		if let Some(next_channel_id) = next_channel_id {
 			if let Some(lsps2_service_handler) = self.liquidity_manager.lsps2_service_handler() {
 				if let Err(e) = lsps2_service_handler.payment_forwarded(next_channel_id) {
-					log_error!(self.logger, "Failed to handle PaymentForwarded: {:?}", e);
+					log_error!(
+						self.logger,
+						"LSPS2 service failed to handle PaymentForwarded: {:?}",
+						e
+					);
 				}
 			}
 		}
