@@ -1004,11 +1004,12 @@ fn lsps2_client_service_integration() {
 
 	// Setup three nodes: service, client, and payer
 	let channel_opening_fee_ppm = 10_000;
+	let channel_over_provisioning_ppm = 100_000;
 	let lsps2_service_config = LSPS2ServiceConfig {
 		require_token: None,
 		advertise_service: false,
 		channel_opening_fee_ppm,
-		channel_over_provisioning_ppm: 100_000,
+		channel_over_provisioning_ppm,
 		max_payment_size_msat: 1_000_000_000,
 		min_payment_size_msat: 0,
 		min_channel_lifetime: 100,
@@ -1084,7 +1085,14 @@ fn lsps2_client_service_integration() {
 	expect_channel_ready_event!(client_node, service_node.node_id());
 
 	let service_fee_msat = (jit_amount_msat * channel_opening_fee_ppm as u64) / 1_000_000;
-	let expected_amount = jit_amount_msat - service_fee_msat;
+	let expected_received_amount_msat = jit_amount_msat - service_fee_msat;
 	expect_payment_successful_event!(payer_node, Some(payment_id), None);
-	expect_payment_received_event!(client_node, expected_amount);
+	expect_payment_received_event!(client_node, expected_received_amount_msat);
+
+	let expected_channel_overprovisioning_msat =
+		(expected_received_amount_msat * channel_over_provisioning_ppm as u64) / 1_000_000;
+	let expected_channel_size_sat =
+		(expected_received_amount_msat + expected_channel_overprovisioning_msat) / 1000;
+	let channel_value_sats = client_node.list_channels().first().unwrap().channel_value_sats;
+	assert_eq!(channel_value_sats, expected_channel_size_sat);
 }
