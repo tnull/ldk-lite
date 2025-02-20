@@ -100,11 +100,12 @@ pub struct LSPS2ServiceConfig {
 	pub channel_opening_fee_ppm: u32,
 	/// The proportional overprovisioning for the channel.
 	///
-	/// This determines, in parts-per-million of the client-requested amount, how much value we'll
-	/// provision on top of the client-requested payment amount.
+	/// This determines, in parts-per-million, how much value we'll provision on top of the amount
+	/// we need to forward the payment to the client.
 	///
 	/// For example, setting this to `100_000` will result in a channel being opened that is 10%
-	/// larger than the client-requested payment amount.
+	/// larger than then the to-be-forwarded amount (i.e., client-requested amount minus the
+	/// channel opening fee fee).
 	pub channel_over_provisioning_ppm: u32,
 	/// The minimum fee required for opening a channel.
 	pub min_channel_opening_fee_msat: u64,
