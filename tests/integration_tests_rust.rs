@@ -1073,7 +1073,7 @@ fn lsps2_client_service_integration() {
 	println!("Generating JIT invoice!");
 	let jit_invoice = client_node
 		.bolt11_payment()
-		.receive_via_jit_channel(jit_amount_msat, &invoice_description, 1024, None)
+		.receive_via_jit_channel(jit_amount_msat, &invoice_description.into(), 1024, None)
 		.unwrap();
 
 	// Have the payer_node pay the invoice, therby triggering channel open service_node -> client_node.
